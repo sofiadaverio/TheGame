@@ -3,7 +3,7 @@ package ar.ed.unlu.modelo;
 import java.util.ArrayList;
 import java.util.Collections;
 
-public class MazoPrincipal {
+public class MazoPrincipal implements java.io.Serializable{
     private ArrayList<Carta> cartas;
 
     public MazoPrincipal(){

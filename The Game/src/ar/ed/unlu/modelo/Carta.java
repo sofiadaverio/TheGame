@@ -2,7 +2,7 @@ package ar.ed.unlu.modelo;
 
 import java.util.Objects;
 
-public class Carta {
+public class Carta implements java.io.Serializable{
     private Integer numero;
     private ColorCarta color;
 
@@ -30,6 +30,7 @@ public class Carta {
     public int hashCode() {
         return Objects.hash(numero, color);
     }
+
 
 
 }

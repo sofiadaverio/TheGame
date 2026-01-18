@@ -3,7 +3,7 @@ package ar.ed.unlu.modelo;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Equipo {
+public class Equipo implements java.io.Serializable{
     private ArrayList<Jugador> jugadores;
     private ArrayList<Mensajes> mensajes;
     private String nombre;

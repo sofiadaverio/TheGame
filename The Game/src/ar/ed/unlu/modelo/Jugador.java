@@ -3,7 +3,7 @@ package ar.ed.unlu.modelo;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Jugador {
+public class Jugador implements java.io.Serializable{
     private String nombre;
     private ArrayList<Carta> mano;
 

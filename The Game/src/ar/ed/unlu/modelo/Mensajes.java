@@ -1,6 +1,12 @@
 package ar.ed.unlu.modelo;
 
 public enum Mensajes {
+
+    HOLA("¡Hola a todos!"),
+    LISTO("Estoy listo para jugar."),
+    ESPERANDO("Esperando al resto..."),
+    BUENA_SUERTE("¡Buena suerte equipo!"),
+
     BAJA_ROJO("Tengo una carta baja de color rojo."),
     BAJA_AZUL("Tengo una carta baja de color azul."),
     BAJA_AMARILLO("Tengo una carta baja de color amarillo."),
@@ -22,5 +28,10 @@ public enum Mensajes {
 
     public String getMensaje() {
         return mensaje;
+    }
+
+    public boolean esDeJuego() {
+        String n = this.name();
+        return n.startsWith("BAJA") || n.startsWith("ALTA") || n.startsWith("INTERMEDIA");
     }
 }

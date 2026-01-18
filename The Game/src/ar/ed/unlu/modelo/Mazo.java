@@ -2,7 +2,7 @@ package ar.ed.unlu.modelo;
 
 import java.util.Stack;
 
-public class Mazo {
+public class Mazo implements java.io.Serializable{
     private TipoMazo tipoMazo;
     private Stack<Carta> cartas;
 
