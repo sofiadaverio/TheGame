@@ -145,15 +145,15 @@ public class Juego extends ObservableRemoto implements IJuego, java.io.Serializa
             }
 
             jugadoresConectadosActualmente.add(nombre);
-            transmisi0nMensaje(MensajesSala.SISTEMA, "SERVIDOR: " + nombre + " se ha reconectado.");
+            transmisionMensaje(MensajesSala.SISTEMA, "SERVIDOR: " + nombre + " se ha reconectado.");
 
             if (jugadoresConectadosActualmente.size() == equipo.getJugadores().size()) {
                 this.estadoJuego = EstadoJuego.EN_PROCESO;
-                transmisi0nMensaje(MensajesSala.SISTEMA, "SERVIDOR: ¡Todos conectados! El juego se reanuda.");
+                transmisionMensaje(MensajesSala.SISTEMA, "SERVIDOR: ¡Todos conectados! El juego se reanuda.");
                 notificarObservadores(Evento.JUEGO_INICIADO);
             } else {
                 int faltan = equipo.getJugadores().size() - jugadoresConectadosActualmente.size();
-                transmisi0nMensaje(MensajesSala.SISTEMA, "SERVIDOR: Esperando a " + faltan + " jugadores más...");
+                transmisionMensaje(MensajesSala.SISTEMA, "SERVIDOR: Esperando a " + faltan + " jugadores más...");
                 notificarObservadores(Evento.JUGADOR_CONECTADO);
             }
         }
@@ -181,7 +181,7 @@ public class Juego extends ObservableRemoto implements IJuego, java.io.Serializa
 
         if (this.estadoJuego == EstadoJuego.EN_PROCESO) {
             this.estadoJuego = EstadoJuego.ESPERANDO_RECONEXION;
-            transmisi0nMensaje(MensajesSala.SISTEMA, "SERVIDOR: " + nombre + " se desconectó. PAUSANDO JUEGO.");
+            transmisionMensaje(MensajesSala.SISTEMA, "SERVIDOR: " + nombre + " se desconectó. PAUSANDO JUEGO.");
             notificarObservadores(Evento.TURNO_CAMBIADO);
         } else {
             if (this.estadoJuego == EstadoJuego.ESPERANDO) {
@@ -265,15 +265,15 @@ public class Juego extends ObservableRemoto implements IJuego, java.io.Serializa
 
 
 
-    public void transmisi0nMensaje (MensajesPro mensaje, String emisor) throws RemoteException {
+    public void transmisionMensaje(MensajesPro mensaje, String emisor) throws RemoteException {
         enviarObjetoChat(mensaje.getMensaje(), emisor);
     }
 
-    public void transmisi0nMensaje (MensajesSala mensaje, String emisor) throws RemoteException {
+    public void transmisionMensaje(MensajesSala mensaje, String emisor) throws RemoteException {
         enviarObjetoChat(mensaje.getMensaje(), emisor);
     }
 
-    public void transmisi0nMensaje (MensajesNormal mensaje, String emisor) throws RemoteException {
+    public void transmisionMensaje(MensajesNormal mensaje, String emisor) throws RemoteException {
         enviarObjetoChat(mensaje.getMensaje(), emisor);
     }
 
@@ -299,14 +299,13 @@ public class Juego extends ObservableRemoto implements IJuego, java.io.Serializa
 
     public void guardarPartida() throws RemoteException {
         try {
-            // Usamos ruta absoluta para asegurar que se guarde en la carpeta del proyecto
             String path = System.getProperty("user.dir") + File.separator + "partida_" + this.equipo.getNombre().replaceAll("\\s+", "_") + ".save";
 
             GestorPersistencia.guardar(this, path);
             System.out.println("Partida guardada en: " + path);
 
             try {
-                transmisi0nMensaje(MensajesSala.SISTEMA, "SERVIDOR: Partida guardada.");
+                transmisionMensaje(MensajesSala.SISTEMA, "SERVIDOR: Partida guardada.");
             } catch (Exception ex) {
                 System.out.println("No se pudo notificar a algunos clientes (posible desconexión), pero el juego se guardó.");
             }

@@ -130,28 +130,28 @@ public class Controlador implements IControladorRemoto {
     }
 
     public void enviarChat(MensajesPro m, String emisor) {
-        try { this.juego.transmisi0nMensaje(m, emisor); }
+        try { this.juego.transmisionMensaje(m, emisor); }
         catch (RemoteException e) { e.printStackTrace(); }
     }
 
     public void enviarChat(MensajesNormal m, String emisor) {
-        try { this.juego.transmisi0nMensaje(m, emisor); }
+        try { this.juego.transmisionMensaje(m, emisor); }
         catch (RemoteException e) { e.printStackTrace(); }
     }
 
     public void enviarChat(MensajesSala m, String emisor) {
-        try { this.juego.transmisi0nMensaje(m, emisor); }
+        try { this.juego.transmisionMensaje(m, emisor); }
         catch (RemoteException e) { e.printStackTrace(); }
     }
 
     public void enviarMensajeChat(Object m, String emisor) {
         try {
             if (m instanceof MensajesSala) {
-                this.juego.transmisi0nMensaje((MensajesSala) m, emisor);
+                this.juego.transmisionMensaje((MensajesSala) m, emisor);
             } else if (m instanceof MensajesNormal) {
-                this.juego.transmisi0nMensaje((MensajesNormal) m, emisor);
+                this.juego.transmisionMensaje((MensajesNormal) m, emisor);
             } else if (m instanceof MensajesPro) {
-                this.juego.transmisi0nMensaje((MensajesPro) m, emisor);
+                this.juego.transmisionMensaje((MensajesPro) m, emisor);
             } else if (m instanceof String) {
                 // Para la consola si escriben manualmente, o si el combo devuelve String
                 String texto = (String) m;
@@ -159,7 +159,7 @@ public class Controlador implements IControladorRemoto {
                 // Opción B: Buscar el Enum por su contenido de texto (getMensaje())
                 for (MensajesSala ms : MensajesSala.values()) {
                     if (ms.getMensaje().equals(texto) || ms.name().equals(texto)) {
-                        this.juego.transmisi0nMensaje(ms, emisor);
+                        this.juego.transmisionMensaje(ms, emisor);
                         return;
                     }
                 }

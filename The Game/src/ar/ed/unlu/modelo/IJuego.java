@@ -28,11 +28,11 @@ public interface IJuego extends IObservableRemoto {
 
     boolean tieneMovimientoValidos(Jugador jugador) throws RemoteException;
 
-    void transmisi0nMensaje(MensajesSala mensaje, String emisor) throws RemoteException;
+    void transmisionMensaje(MensajesSala mensaje, String emisor) throws RemoteException;
 
-    void transmisi0nMensaje(MensajesPro mensaje, String emisor) throws RemoteException;
+    void transmisionMensaje(MensajesPro mensaje, String emisor) throws RemoteException;
 
-    void transmisi0nMensaje(MensajesNormal mensaje, String emisor) throws RemoteException;
+    void transmisionMensaje(MensajesNormal mensaje, String emisor) throws RemoteException;
 
     boolean esModoProfesional() throws RemoteException;
 
