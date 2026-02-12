@@ -3,43 +3,63 @@ package ar.ed.unlu.vista.grafica.layouts;
 import java.awt.Point;
 
 public class LayoutCincoJugadores extends LayoutBase {
-        // Columna para el jugador VERTICAL (pegado al borde izquierdo)
-        private final int X_COL_VERTICAL = 20;
 
-        // Columna para los jugadores HORIZONTALES de la IZQUIERDA (J2 y J4)
-        private final int X_COL_IZQ = 140;
+    @Override
+    public Point getPosicionMazos(int w, int h) {
+        int cx = getCentroX(w);
+        int cy = getCentroY(h);
+        return new Point(cx + 100, cy - 60);
+    }
 
-        // Columna para los jugadores HORIZONTALES de la DERECHA (J5 y Tú)
-        private final int X_COL_DER = 530;
+    @Override
+    public int[] getPosicionRival(int i, int w, int h) {
+        int cy = getCentroY(h);
 
-        // --- DEFINICIÓN DE FILAS ---
-        private final int Y_ARR = 25;   // Fila Superior
-        private final int Y_CEN = 225;  // Fila Central (Para el vertical)
-        private final int Y_ABA = 520;  // Fila Inferior
+        int anchoUtil = w - ANCHO_CHAT;
 
-        @Override
-        public int[] getPosicionRival(int i) {
-            // i = índice del rival (0 a 3)
-            switch (i) {
-                // J2: Abajo Izquierda (Horizontal)
-                case 0: return new int[]{X_COL_IZQ, Y_ABA, 0};
 
-                // J3: Centro Izquierda (Vertical) -> Usa la columna especial vertical
-                case 1: return new int[]{X_COL_VERTICAL, Y_CEN, 1};
+        int xIzq = (int) (anchoUtil * 0.12);
+        int xDer = (int) (anchoUtil * 0.88) - 320;
 
-                // J4: Arriba Izquierda (Horizontal)
-                case 2: return new int[]{X_COL_IZQ, Y_ARR, 0};
+        xIzq = Math.max(xIzq, 240);
 
-                // J5: Arriba Derecha (Horizontal)
-                case 3: return new int[]{X_COL_DER, Y_ARR, 0};
+        xDer = Math.max(xDer, anchoUtil / 2 + 150);
 
-                default: return new int[]{0,0,0};
-            }
-        }
+        int yAbajo = h - 260; // Fila de abajo
+        yAbajo = Math.max(yAbajo, cy + 140);
 
-        @Override
-        public Point getPosicionMiZona() {
-            // Tú: Abajo Derecha
-            return new Point(X_COL_DER, Y_ABA);
+        int yArriba = 20; // Fila de arriba
+
+        switch (i) {
+            case 0: // J2: Abajo Izquierda
+                return new int[]{xIzq, yAbajo, 0};
+
+            case 1: // J3: Centro Izquierda (VERTICAL)
+                // Fijo al borde izquierdo
+                return new int[]{20, cy - 160, 1};
+
+            case 2: // J4: Arriba Izquierda
+                return new int[]{xIzq, yArriba, 0};
+
+            case 3: // J5: Arriba Derecha
+                return new int[]{xDer, yArriba, 0};
+
+            default: return new int[]{0, 0, 0};
         }
     }
+
+    @Override
+    public Point getPosicionMiZona(int w, int h) {
+        // Usamos la misma lógica de "xDer" para que tú (J1) estés alineado con J5
+        int anchoUtil = w - ANCHO_CHAT;
+        int xDer = (int) (anchoUtil * 0.88) - 320;
+
+        // Tope
+        xDer = Math.max(xDer, anchoUtil / 2 + 150);
+
+        int y = h - 260;
+        y = Math.max(y, (h / 2) + 140);
+
+        return new Point(xDer, y);
+    }
+}

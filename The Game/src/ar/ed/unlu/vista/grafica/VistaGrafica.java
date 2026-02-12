@@ -1,122 +1,236 @@
 package ar.ed.unlu.vista.grafica;
 
-import ar.ed.unlu.controlador.ControladorConsola;
+import ar.ed.unlu.controlador.Controlador;
+import ar.ed.unlu.controlador.EstadoTurno;
 import ar.ed.unlu.modelo.Carta;
-import ar.ed.unlu.modelo.Mensajes; // Importante
+import ar.ed.unlu.modelo.EstadoJuego;
+import ar.ed.unlu.modelo.Mazo;
+import ar.ed.unlu.modelo.RegistroRanking;
+import ar.ed.unlu.vista.IVista;
+import ar.ed.unlu.vista.consola.EstadoVistaConsola;
 import ar.ed.unlu.vista.grafica.layouts.*;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 
 import javax.swing.*;
 import java.awt.*;
 import java.util.List;
 
-public class VistaGrafica extends JFrame {
+public class VistaGrafica extends JFrame implements IVista {
 
-    private ControladorConsola controlador;
+    private Controlador controlador;
     private CardLayout cardLayout;
     private JPanel panelContenedor;
+    private String nombreJugador;
 
-    // --- PANTALLAS ---
-    // private PanelMenu panelMenu; // YA NO LO USAMOS
-    private PanelSalaEspera panelSalaEspera; // NUEVA PANTALLA
+    private PanelSalaEspera panelSalaEspera;
+    private PanelReglas panelReglas;
     private PanelJuego panelJuego;
+    private PanelConfiguracion panelConfig;
+    private PanelRanking panelRanking;
 
-    public VistaGrafica(ControladorConsola ctrl) {
+    public VistaGrafica(Controlador ctrl, String nombreJugador) {
         this.controlador = ctrl;
+        this.nombreJugador = nombreJugador;
 
-        setTitle("The Game - Quick & Easy");
-        setSize(1280, 800);
+        setTitle("The Game: Quick & Easy - Jugador: " + nombreJugador);
+        setSize(1224, 768);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
-        setResizable(false);
+        setResizable(true);
+
+
+        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                confirmarCierreApp(); // Llamamos a nuestro método personalizado
+            }
+        });
+
 
         cardLayout = new CardLayout();
         panelContenedor = new JPanel(cardLayout);
 
-        // 1. INICIALIZAR SALA DE ESPERA (En lugar de Menú)
-        // Runnable onIniciar -> Llama a iniciar partida real
-        // Consumer<Mensajes> onMensaje -> Manda mensaje al chat
+        panelReglas = new PanelReglas(() -> cardLayout.show(panelContenedor, "SALA_ESPERA"));
+
+        panelConfig = new PanelConfiguracion(() -> {
+            if (panelSalaEspera != null) panelSalaEspera.actualizarFondo();
+            if (panelReglas != null) panelReglas.actualizarFondo();
+            if (panelJuego != null) panelJuego.actualizarFondo();
+            cardLayout.show(panelContenedor, "SALA_ESPERA");
+            this.repaint();
+        });
+
+        panelRanking = new PanelRanking(() -> cardLayout.show(panelContenedor, "SALA_ESPERA"));
+
+        panelJuego = new PanelJuego(controlador, nombreJugador);
+        panelJuego.setAccionVolver(() -> {
+            cardLayout.show(panelContenedor, "SALA_ESPERA");
+            GestorAudio.reproducirMusica(GestorAudio.MUSICA_ESPERA);
+        });
+
         panelSalaEspera = new PanelSalaEspera(
-                () -> solicitarInicioPartida(),
-                (mensaje) -> enviarMensajeAlChat(mensaje)
+                (esModoPro) -> {
+                    if (panelJuego != null) panelJuego.setModoJuego(esModoPro);
+                    if (controlador != null) controlador.iniciarPartida(esModoPro);
+                },
+                (mensajeSala) -> { if (controlador != null) controlador.enviarMensajeChat(mensajeSala, nombreJugador); },
+                () -> cardLayout.show(panelContenedor, "REGLAS"),
+                () -> cardLayout.show(panelContenedor, "CONFIG"),
+                () -> {
+                    List<RegistroRanking> lista = controlador.getRanking();
+                    panelRanking.setRanking(lista);
+                    panelRanking.actualizarFondo(); // Por si cambió la config
+                    cardLayout.show(panelContenedor, "RANKING");
+                }
         );
 
-        // 2. INICIALIZAR JUEGO
-        panelJuego = new PanelJuego(ctrl, "Jugador", new LayoutCincoJugadores());
-
-        // 3. AGREGAR PANTALLAS
         panelContenedor.add(panelSalaEspera, "SALA_ESPERA");
+        panelContenedor.add(panelReglas, "REGLAS");
+        panelContenedor.add(panelConfig, "CONFIG");
         panelContenedor.add(panelJuego, "JUEGO");
+        panelContenedor.add(panelRanking, "RANKING");
 
         add(panelContenedor);
-
-        // Empezamos mostrando la SALA DE ESPERA
         cardLayout.show(panelContenedor, "SALA_ESPERA");
-
-        // Simulamos que agregamos un jugador local a la lista visualmente
-        // En el futuro, esto lo hará el setJugadores cuando el servidor avise
-        panelSalaEspera.actualizarListaJugadores(java.util.Arrays.asList("Yo (Conectado)"));
+        GestorAudio.reproducirMusica(GestorAudio.MUSICA_ESPERA);
     }
 
-    // --- ACCIONES ---
+    private void confirmarCierreApp() {
+        GestorAudio.reproducirEfecto(GestorAudio.SFX_BOTON);
+        if (panelJuego != null && panelJuego.isShowing()) {
+            int opcion = DialogoSalida.mostrar(this);
+            if (opcion == 0) {
 
-    private void solicitarInicioPartida() {
-        // Aquí le dirías al controlador que empiece
-        System.out.println("Solicitando inicio de partida...");
-        // TEMPORAL: Para probar, forzamos el cambio
-        iniciarPartida(java.util.Arrays.asList("Jugador 1", "Jugador 2", "Jugador 3"));
+                if (controlador != null) controlador.cerrarPartida(true, nombreJugador);
+                else System.exit(0);
+            } else if (opcion == 1) {
+                if (controlador != null) controlador.cerrarPartida(false, nombreJugador);
+                else System.exit(0);
+            }
+
+
+        } else {
+
+
+            int confirm = JOptionPane.showConfirmDialog(this,
+                    "¿Seguro que quieres salir del juego?",
+                    "Salir",
+                    JOptionPane.YES_NO_OPTION);
+
+            if (confirm == JOptionPane.YES_OPTION) {
+                if (controlador != null) controlador.cerrarPartida(false, nombreJugador);
+                System.exit(0);
+            }
+        }
     }
 
-    private void enviarMensajeAlChat(Mensajes m) {
-        System.out.println("Enviando mensaje: " + m);
-        // controlador.enviarMensaje(...)
-        // TEMPORAL: Lo mostramos localmente
-        panelSalaEspera.agregarMensajeChat("Yo: " + m.toString());
+    @Override
+    public void iniciar() { this.setVisible(true); }
+
+    @Override
+    public void mostrarSalaEspera(List<String> jugadores) {
+        cardLayout.show(panelContenedor, "SALA_ESPERA");
+        if (panelSalaEspera != null) panelSalaEspera.actualizarListaJugadores(jugadores);
     }
 
-    // --- MÉTODOS PÚBLICOS ---
-
-    public void iniciarPartida(List<String> jugadores) {
-        LayoutMesa layoutSeleccionado;
-        int n = jugadores.size();
-
-        if (n == 5) layoutSeleccionado = new LayoutCincoJugadores();
-        else if (n == 4) layoutSeleccionado = new LayoutCuatroJugadores();
-        else if (n == 3) layoutSeleccionado = new LayoutTresJugadores();
-        else if (n == 2) layoutSeleccionado = new LayoutDosJugadores();
-        else layoutSeleccionado = new LayoutCuatroJugadores();
+    @Override
+    public void mostrarJuego(List<Carta> mano, List<Mazo> mazos, String jugadorActual, EstadoTurno estado, String feedback) {
+        if (!panelJuego.isShowing()) {
+            GestorAudio.reproducirMusica(GestorAudio.MUSICA_JUEGO);
+            cardLayout.show(panelContenedor, "JUEGO");
+        }
 
         if (panelJuego != null) {
-            panelJuego.setJugadores(jugadores);
-            panelJuego.setLayoutMesa(layoutSeleccionado);
+            try {
+                // Chequear estado global para saber si pausar
+                EstadoJuego estadoGlobal = controlador.getEstadoJuego(); // Necesitarás exponer esto en el controlador si no está
+
+                if (estadoGlobal == EstadoJuego.ESPERANDO_RECONEXION) {
+                    panelJuego.setJuegoPausado(true);
+                    panelJuego.setMensajeEstado("ESPERANDO JUGADORES...");
+                } else {
+                    panelJuego.setJuegoPausado(false);
+                }
+            } catch (Exception e) {}
+            boolean esPro = controlador.esModoProfesional();
+            panelJuego.setModoJuego(esPro);
+            panelJuego.resetearInterfaz();
+            panelJuego.actualizarMano(mano);
+            panelJuego.actualizarMesa(mazos);
+
+            boolean esMiTurno = jugadorActual.equals(nombreJugador);
+            panelJuego.setTurnoActivo(esMiTurno);
+
+            boolean jugadaExitosa = (feedback != null && feedback.contains("xitos"));
+            boolean consultarMovimiento = (estado == EstadoTurno.CONSULAR_MOVIMIENTO);
+
+            if (esMiTurno) {
+                if (jugadaExitosa || consultarMovimiento) {
+                    // --- AQUÍ ESTÁ EL CAMBIO: NO ABRIMOS VENTANAS ---
+                    panelJuego.setMensajeEstado("JUGÁ OTRA CARTA O TOCÁ EL MAZO PARA PASAR");
+                } else {
+                    panelJuego.setMensajeEstado("¡ES TU TURNO!");
+                }
+            } else {
+                panelJuego.setMensajeEstado("Turno de: " + jugadorActual);
+            }
+
+            if (feedback != null && !feedback.isEmpty() && !jugadaExitosa && !feedback.startsWith("¡Jugada")) {
+                panelJuego.mostrarError(feedback);
+            }
         }
-        cardLayout.show(panelContenedor, "JUEGO");
+
+        if (controlador != null && panelJuego != null) {
+            try { panelJuego.actualizarRivales(controlador.getNombresJugadores(), controlador.obtenerCantidadCartasRivales()); } catch (Exception e) {}
+        }
     }
 
-    public void setJugadores(List<String> jugadores) {
-        // Actualizamos la lista visual de la sala de espera
-        if (panelSalaEspera != null) {
-            panelSalaEspera.actualizarListaJugadores(jugadores);
-        }
-        // Y también preparamos el panel de juego
+    @Override
+    public void mostrarMensajeChat(String mensaje) {
+        if (panelJuego != null && panelJuego.isVisible()) panelJuego.agregarMensajeChat(mensaje);
+        else if (panelSalaEspera != null) panelSalaEspera.agregarMensajeChat(mensaje);
+    }
+
+    @Override
+    public void mostrarMensaje(String mensaje) {
+        GestorAudio.reproducirEfecto(GestorAudio.SFX_ERROR);
+        // Usamos DialogoError como pediste
+        DialogoError dialogo = new DialogoError(this, mensaje);
+        dialogo.setVisible(true);
+    }
+
+    @Override
+    public void mostrarPantallaFin(String resultado) {
+        SwingUtilities.invokeLater(() -> {
+            boolean gano = resultado.equalsIgnoreCase("VICTORIA");
+            if (panelJuego != null) panelJuego.mostrarFinJuego(gano, "LA PARTIDA HA TERMINADO");
+        });
+    }
+
+    @Override
+    public void setModoJuego(boolean esPro) {
         if (panelJuego != null) {
-            panelJuego.setJugadores(jugadores);
+            panelJuego.setModoJuego(esPro);
         }
     }
 
-    public void actualizarMano(List<Carta> cartas) {
-        if (panelJuego != null) panelJuego.actualizarMano(cartas);
+    @Override
+    public void mostrarPantallaFin(boolean esVictoria, String mensaje) {
+        SwingUtilities.invokeLater(() -> {
+            if (panelJuego != null) panelJuego.mostrarFinJuego(esVictoria, mensaje);
+        });
     }
 
-    public void actualizarMesa(int asc, int des) {
-        if (panelJuego != null) panelJuego.actualizarMesa(asc, des);
+    @Override
+    public void mostrarJuegoPausado(boolean pausado) {
+        if (panelJuego != null) {
+            panelJuego.setJuegoPausado(pausado);
+        }
     }
 
-    public void mostrarError(String msg) {
-        if (panelJuego != null && panelJuego.isVisible()) panelJuego.mostrarError(msg);
-        else JOptionPane.showMessageDialog(this, msg);
-    }
-
-    public void iniciar() {
-        this.setVisible(true);
-    }
+    @Override public void limpiarPantalla() {}
+    @Override public void setEstado(EstadoVistaConsola estado) {}
 }

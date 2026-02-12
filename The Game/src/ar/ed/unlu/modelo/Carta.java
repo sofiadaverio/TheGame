@@ -30,7 +30,4 @@ public class Carta implements java.io.Serializable{
     public int hashCode() {
         return Objects.hash(numero, color);
     }
-
-
-
 }

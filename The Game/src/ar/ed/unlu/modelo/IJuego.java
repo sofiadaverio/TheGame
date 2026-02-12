@@ -6,7 +6,7 @@ import java.util.List;
 
 public interface IJuego extends IObservableRemoto {
 
-    void iniciarJuego() throws RemoteException;
+    void iniciarJuego(boolean modoProfesional) throws RemoteException;
 
     boolean jugarTurno(Carta carta, Mazo mazo) throws RemoteException;
 
@@ -31,5 +31,15 @@ public interface IJuego extends IObservableRemoto {
 
     boolean tieneMovimientoValidos(Jugador jugador) throws RemoteException;
 
-    void transmisi0nMensaje(Mensajes mensaje, String emisor) throws RemoteException;
+    void transmisi0nMensaje(MensajesSala mensaje, String emisor) throws RemoteException;
+
+    void transmisi0nMensaje(MensajesPro mensaje, String emisor) throws RemoteException;
+
+    void transmisi0nMensaje(MensajesNormal mensaje, String emisor) throws RemoteException;
+
+    boolean esModoProfesional() throws RemoteException;
+
+    List<RegistroRanking> obtenerRanking() throws RemoteException;
+
+    void guardarPartida() throws RemoteException;
 }

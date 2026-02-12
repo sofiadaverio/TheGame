@@ -1,240 +1,388 @@
 package ar.ed.unlu.vista.consola;
 
-import ar.ed.unlu.controlador.ControladorConsola;
-import ar.ed.unlu.modelo.Mensajes;
+import ar.ed.unlu.controlador.Controlador;
+import ar.ed.unlu.controlador.EstadoTurno;
+import ar.ed.unlu.modelo.*;
+import ar.ed.unlu.vista.IVista;
 
 import javax.swing.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.util.List;
 
-public class VistaConsola extends JFrame {
+public class VistaConsola extends JFrame implements IVista {
     private JPanel panelPrincipal;
-
-    // --- LADO IZQUIERDO (JUEGO) ---
-    private JScrollPane scrol;
     private JTextArea txtSalida;
     private JTextField txtEntrada;
-
-    // --- LADO DERECHO (CHAT)
-    private JScrollPane scroll2;
     private JTextArea txtChat;
-    private JComboBox<Mensajes> comboBox;
+    private JComboBox<Object> comboBox;
     private JButton enviarButton;
+    private JScrollPane scrol, scroll2;
 
-    private ControladorConsola controlador;
-    private EstadoVistaConsola estado;
+    private Controlador controlador;
     private String nombreJugador;
 
-    // Para evitar recargar el combo a cada rato
+    private boolean esperandoConfirmacion = false;
+    private boolean esperandoConfirmacionSalida = false; // Nueva bandera para salir
     private boolean modoJuegoActivo = false;
+    private EstadoVistaConsola estado;
+    private boolean esModoProfesional;
+    private String ultimoJugadorTurno = "";
 
     private void createUIComponents() {
-        // 1. IZQUIERDA
         txtEntrada = new JTextField();
-        txtSalida = new JTextArea();
-        txtSalida.setEditable(false);
+        txtSalida = new JTextArea(); txtSalida.setEditable(false);
         scrol = new JScrollPane(txtSalida);
-
-        // 2. DERECHA
-        txtChat = new JTextArea();
-        txtChat.setEditable(false);
+        txtChat = new JTextArea(); txtChat.setEditable(false);
         scroll2 = new JScrollPane(txtChat);
-
-        // 3. CONTROLES (Inicializarlos aquí evita errores si el .form se confunde)
-        comboBox = new JComboBox<>();
+        comboBox = new JComboBox<Object>();
         enviarButton = new JButton("Enviar");
     }
 
-    public VistaConsola(String nombreJugador, ControladorConsola controlador) {
-        this.nombreJugador = nombreJugador;
+    public VistaConsola(Controlador controlador) {
         this.controlador = controlador;
+        this.nombreJugador = "Jugador";
 
-        setTitle("The Game - Jugador: " + nombreJugador);
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(800, 600); // Un poco más ancho para que entren los dos paneles
+        setTitle("The Game - CONSOLA");
+        setSize(900, 600);
         setLocationRelativeTo(null);
+        if (panelPrincipal != null) setContentPane(panelPrincipal);
 
-        if (panelPrincipal != null) {
-            setContentPane(panelPrincipal);
-        } else {
-            // Fallback de emergencia
-            System.err.println("Error: panelPrincipal es null. Revisa el .form");
-            // (Si pasa esto, el createUIComponents ayuda, pero el diseño se rompería)
-        }
-
-        // 1. CONFIGURAR ACCIONES DE JUEGO (Izquierda)
-        txtEntrada.addActionListener(new ActionListener() {
+        // --- CAMBIO: Bloqueamos el cierre automático para preguntar ---
+        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+        addWindowListener(new WindowAdapter() {
             @Override
-            public void actionPerformed(ActionEvent e) {
-                if (!txtEntrada.getText().isEmpty()) {
-                    procesarEntrada(txtEntrada.getText());
-                    txtEntrada.setText("");
-                }
+            public void windowClosing(WindowEvent e) {
+                iniciarProcesoSalida();
+            }
+        });
+        // --------------------------------------------------------------
+
+        txtEntrada.addActionListener(e -> {
+            String texto = txtEntrada.getText().trim();
+            if (!texto.isEmpty()) {
+                procesarEntrada(texto);
+                txtEntrada.setText("");
             }
         });
 
-        // 2. CONFIGURAR ACCIONES DE CHAT (Derecha)
-        configurarChat();
-
-        // 3. INICIAR EN MODO LOBBY
-        mostrarMenuPrincipal();
+        enviarButton.addActionListener(e -> enviarChat());
     }
 
     private void procesarEntrada(String entrada) {
-        entrada = entrada.trim();
-        // Opcional: mostrar lo que uno escribe (eco)
-        // mostrarMensaje("> " + entrada);
 
-        switch (estado) {
-            case MENU_PRINCIPAL:
-                // Ahora esto maneja "1. Iniciar", "2. Reglas"
-                controlador.procesarMenuPrincipal(entrada, nombreJugador);
-                break;
+        // --- LÓGICA DE SALIDA (PRIORIDAD MÁXIMA) ---
+        if (esperandoConfirmacionSalida) {
+            procesarRespuestaSalida(entrada);
+            return;
+        }
 
-            case TURNO_JUGADOR:
-                controlador.procesarTurnoJugador(entrada, nombreJugador);
-                break;
+        // --- COMANDOS GLOBALES ---
+        if (entrada.equalsIgnoreCase("salir") || entrada.equalsIgnoreCase("exit")) {
+            iniciarProcesoSalida();
+            return;
+        }
 
-            case SEGUNDA_CARTA:
-                // Aquí solo esperamos un "si" o "no"
-                controlador.procesarConfirmacionSegundaJugada(entrada, nombreJugador);
-                break;
+        // 1. MENU PRINCIPAL
+        if (estado == EstadoVistaConsola.MENU_PRINCIPAL || !modoJuegoActivo) {
+            if (entrada.equals("1")) {
+                controlador.iniciarPartida(false);
+                this.esModoProfesional=false;
+                return;
+            }
+            if (entrada.equals("2")) {
+                controlador.iniciarPartida(true);
+                this.esModoProfesional=true;
+                return;
+            }
+            if (entrada.equals("3")) {
+                mostrarReglas();
+                return;
+            }
+            if (entrada.equals("4")) {
+                mostrarRanking(); // NUEVO
+                return;
+            }
+            return;
+        }
 
-            case COMUNICACION:
-                // Si agregas chat después, iría acá
-                break;
+        // 2. LOGICA SI/NO (SEGUNDA CARTA)
+        if (esperandoConfirmacion) {
+            if (entrada.equalsIgnoreCase("si")) {
+                controlador.confirmarSegundaCarta(true, nombreJugador);
+                return;
+            } else if (entrada.equalsIgnoreCase("no")) {
+                controlador.confirmarSegundaCarta(false, nombreJugador);
+                return;
+            } else {
+                mostrarMensaje("⚠️ Por favor, responde 'si' o 'no'.");
+                return;
+            }
+        }
+
+        // 3. JUGADA NORMAL
+        if (entrada.contains(" ")) {
+            intentarJugarCarta(entrada);
         }
     }
 
-    // --- MENÚ UNIFICADO (Ya no hay "Agregar Jugador") ---
-    public void mostrarMenuPrincipal() {
-        this.estado = EstadoVistaConsola.MENU_PRINCIPAL;
+    // --- NUEVO: Lógica de Ranking ---
+    private void mostrarRanking() {
+        limpiarPantalla();
+        mostrarMensaje("=================================");
+        mostrarMensaje("       HALL OF FAME (TOP 5)      ");
+        mostrarMensaje("=================================");
 
-        actualizarOpcionesChat(false);
+        List<RegistroRanking> ranking = controlador.getRanking();
 
-        limpiarPantalla(); // Limpia izquierda
-
-        if (txtChat.getText().isEmpty()) {
-            mostrarMensajeChat("=== CHAT DE SALA ===");
-            mostrarMensajeChat("Usa el desplegable para saludar.");
+        if (ranking.isEmpty()) {
+            mostrarMensaje("   Aún no hay registros.");
+        } else {
+            int puesto = 1;
+            mostrarMensaje(String.format("%-5s %-20s %-10s", "POS", "EQUIPO", "TIEMPO"));
+            mostrarMensaje("---------------------------------");
+            for (RegistroRanking r : ranking) {
+                mostrarMensaje(String.format("#%-4d %-20s %-10s",
+                        puesto++,
+                        r.getNombreEquipo(),
+                        r.getTiempoFormateado()));
+            }
         }
-        mostrarMensaje("=== SALA DE ESPERA ===");
-        mostrarMensaje("Bienvenido, " + nombreJugador);
-        mostrarMensaje("Esperando a otros jugadores...");
-        mostrarMensaje("-----------------------------");
-        mostrarMensaje("1. Iniciar Partida (Votar para empezar)");
-        mostrarMensaje("2. Ver Reglas");
-        mostrarMensaje("-----------------------------");
-        mostrarMensaje("Escribe el número y dale Enter/Click:");
+        mostrarMensaje("=================================");
+        mostrarMensaje("\nPresiona cualquier tecla y Enter para volver...");
+        // Hack simple: al procesar entrada volverá a mostrar menú
     }
 
-    public void mostrarMensaje(String mensaje) {
-        txtSalida.append(mensaje + "\n");
-        // Auto-scroll hacia abajo
-        txtSalida.setCaretPosition(txtSalida.getDocument().getLength());
-    }
-
-    public void limpiarPantalla(){
-        txtSalida.setText("");
-    }
-
-    public void iniciar() {
-        setVisible(true);
-        toFront();
+    // --- NUEVO: Lógica de Salida Segura ---
+    private void iniciarProcesoSalida() {
+        this.esperandoConfirmacionSalida = true;
+        mostrarMensaje("\n⚠️ ¿DESEAS GUARDAR LA PARTIDA ANTES DE SALIR?");
+        mostrarMensaje("   [S] Guardar y Salir");
+        mostrarMensaje("   [N] Salir SIN Guardar");
+        mostrarMensaje("   [C] Cancelar (Seguir jugando)");
         txtEntrada.requestFocus();
     }
 
-    // --- Getters y Setters ---
+    private void procesarRespuestaSalida(String entrada) {
+        entrada = entrada.toUpperCase();
 
-    public void setEstado(EstadoVistaConsola estado) {
-        this.estado = estado;
-    }
+        if (entrada.startsWith("S")) {
+            // Guardar
+            if (controlador != null) controlador.cerrarPartida(true, nombreJugador);
+            else System.exit(0);
 
-    public String getNombreJugador() {
-        return nombreJugador;
-    }
+        } else if (entrada.startsWith("N")) {
+            // No Guardar
+            if (controlador != null) controlador.cerrarPartida(false, nombreJugador);
+            else System.exit(0);
 
-    private void configurarChat() {
-        // Acción del botón ENVIAR
-        enviarButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                enviarMensajeSeleccionado();
-            }
-        });
-    }
+        } else if (entrada.startsWith("C")) {
+            // Cancelar
+            this.esperandoConfirmacionSalida = false;
+            mostrarMensaje(">>> Cancelado. Seguimos jugando.");
 
-    private void enviarMensajeSeleccionado() {
-        Mensajes mensaje = (Mensajes) comboBox.getSelectedItem();
-        if (mensaje != null) {
-            // Manda el mensaje a través del controlador
-            controlador.enviarMensajeChat(mensaje, this.nombreJugador);
+        } else {
+            mostrarMensaje("Opción no válida. Escribe S, N o C.");
         }
     }
 
+    private void intentarJugarCarta(String entrada) {
+        try {
+            String[] partes = entrada.split("\\s+");
+            if (partes.length < 3) return;
 
-    // 2. Muestra cosas del CHAT
-    public void mostrarMensajeChat(String mensaje) {
-        txtChat.append(mensaje + "\n");
-        txtChat.setCaretPosition(txtChat.getDocument().getLength());
+            Carta c = parserCarta(partes[0], partes[1]);
+            Mazo m = parserMazo(partes[2]);
+            controlador.realizarJugada(c, m, nombreJugador);
+        } catch (Exception e) {
+            mostrarMensaje("Error: " + e.getMessage());
+        }
     }
 
-    // --- LÓGICA DINÁMICA DEL COMBOBOX ---
-    public void actualizarOpcionesChat(boolean esModoJuego) {
-        // Solo actualizamos si cambió el modo (para no resetear la selección a cada rato)
-        if (this.modoJuegoActivo == esModoJuego && comboBox.getItemCount() > 0) return;
+    @Override
+    public void mostrarSalaEspera(List<String> jugadores) {
+        actualizarComboChat(false);
+        limpiarPantalla();
+        mostrarMensaje("=== SALA DE ESPERA (" + jugadores.size() + "/5) ===");
+        for(String j : jugadores) mostrarMensaje(" > " + j);
+        mostrarMensaje("1. Iniciar Partida (NORMAL)");
+        mostrarMensaje("2. Iniciar Partida (PROFESIONAL)");
+        mostrarMensaje("3. Ver Reglas");
+        mostrarMensaje("4. Ver Ranking (Top 5)"); // NUEVO
+        mostrarMensaje("--------------------------");
+        mostrarMensaje("(Escribe 'salir' para cerrar)");
+        txtEntrada.requestFocus();
+    }
 
-        this.modoJuegoActivo = esModoJuego;
-        DefaultComboBoxModel<Mensajes> modelo = new DefaultComboBoxModel<>();
+    @Override
+    public void mostrarPantallaFin(boolean esVictoria, String mensaje) {
+        if (esVictoria) {
+            this.estado = EstadoVistaConsola.VICTORIA;
+        } else {
+            this.estado = EstadoVistaConsola.DERROTA;
+        }
+        mostrarPantallaFin();
+    }
 
-        for (Mensajes m : Mensajes.values()) {
-            if (esModoJuego) {
-                // Si estamos jugando, mostramos solo las cartas (BAJA, ALTA, ETC)
-                if (m.esDeJuego()) modelo.addElement(m);
+    @Override
+    public void setModoJuego(boolean esPro) {
+        this.esModoProfesional = esPro;
+    }
+
+    @Override
+    public void mostrarJuegoPausado(boolean pausado) {
+        if (pausado) {
+            limpiarPantalla();
+            mostrarMensaje("=== JUEGO PAUSADO: ESPERANDO JUGADORES ===");
+            this.estado = EstadoVistaConsola.COMUNICACION;
+        }
+    }
+
+    @Override
+    public void mostrarJuego(List<Carta> mano, List<Mazo> mazos, String jugadorActual, EstadoTurno estado, String feedback) {
+        // Si estamos preguntando por salir, no redibujamos el juego encima
+        if (esperandoConfirmacionSalida) return;
+
+        actualizarComboChat(true);
+        limpiarPantalla();
+
+        if (!jugadorActual.equals(this.ultimoJugadorTurno)) {
+            this.ultimoJugadorTurno = jugadorActual;
+            txtChat.append("\n════════ TURNO DE " + jugadorActual.toUpperCase() + " ════════\n");
+            txtChat.setCaretPosition(txtChat.getDocument().getLength());
+        }
+
+        boolean esMiTurno = nombreJugador.equals(jugadorActual);
+        this.esperandoConfirmacion = (esMiTurno && estado == EstadoTurno.CONSULAR_MOVIMIENTO);
+
+        if (esMiTurno) mostrarMensaje(">>> ES TU TURNO <<<");
+        else mostrarMensaje("Turno de: " + jugadorActual);
+
+        mostrarMensaje("\n--- TUS CARTAS ---");
+        for (Carta c : mano) mostrarMensaje(c.getColor() + " " + c.getNumero());
+
+        mostrarMensaje("\n--- MAZOS ---");
+        for (Mazo m : mazos) {
+            Carta t = m.obtenerUltimaCarta();
+            mostrarMensaje(m.getTipoMazo() + ": " + ((t==null)?"Vacío":t.getColor()+" "+t.getNumero()));
+        }
+
+        if (feedback != null && !feedback.isEmpty()) mostrarMensaje("\n>> " + feedback);
+
+        mostrarMensaje("\n-------------------");
+        if (esMiTurno) {
+            if (esperandoConfirmacion) {
+                mostrarMensaje("¿Quieres jugar otra carta? (si/no)");
             } else {
-                // Si estamos en lobby, mostramos solo saludos (HOLA, LISTO, ETC)
-                if (!m.esDeJuego()) modelo.addElement(m);
+                mostrarMensaje("Jugada: Color Numero Mazo (Ej: ROJO 5 ASC)");
+            }
+            txtEntrada.requestFocus();
+        }
+    }
+
+    public void mostrarPantallaFin() {
+        limpiarPantalla();
+        if (this.estado == EstadoVistaConsola.VICTORIA) {
+            mostrarMensaje("#################################");
+            mostrarMensaje("#          ¡VICTORIA!           #");
+            mostrarMensaje("#################################");
+        } else if (this.estado == EstadoVistaConsola.DERROTA) {
+            mostrarMensaje("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+            mostrarMensaje("x         GAME OVER             x");
+            mostrarMensaje("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+        }
+        mostrarMensaje("\n(Escribe 'salir' para cerrar)");
+    }
+
+    // CONVERSORES
+    private Carta parserCarta(String colorStr, String numStr) {
+        try {
+            int num = Integer.parseInt(numStr);
+            String c = colorStr.toLowerCase();
+            ColorCarta color = null;
+            if (c.startsWith("r")) color = ColorCarta.ROJA;
+            else if (c.startsWith("v")) color = ColorCarta.VERDE;
+            else if (c.startsWith("az")) color = ColorCarta.AZUL;
+            else if (c.startsWith("am")) color = ColorCarta.AMARILLO;
+            else if (c.startsWith("g")) color = ColorCarta.GRIS;
+            else try { color = ColorCarta.valueOf(colorStr.toUpperCase()); } catch(Exception e){}
+            return new Carta(num, color);
+        } catch (Exception e) { throw new IllegalArgumentException("Error carta:Color desconocido"); }
+    }
+    private Mazo parserMazo(String mazoStr) {
+        String m = mazoStr.toLowerCase();
+        if (m.startsWith("a")) return new Mazo(TipoMazo.ASCENDENTE);
+        if (m.startsWith("d")) return new Mazo(TipoMazo.DESCENDENTE);
+        throw new IllegalArgumentException("Mazo incorrecto. Usa: 'asc' o 'a' / 'des' o 'd'");
+    }
+
+    // Utils
+    public void setNombre(String n) { this.nombreJugador = n; setTitle("The Game - Jugador: " + n); }
+    public void iniciar() { setVisible(true); }
+
+    @Override public void mostrarMensaje(String m) { txtSalida.append(m+"\n"); txtSalida.setCaretPosition(txtSalida.getDocument().getLength()); }
+
+    @Override public void mostrarPantallaFin(String resultado) { } // Legacy
+
+    @Override public void mostrarMensajeChat(String m) { txtChat.append(m+"\n"); txtChat.setCaretPosition(txtChat.getDocument().getLength()); }
+    @Override public void limpiarPantalla() { txtSalida.setText(""); }
+    @Override public void setEstado(EstadoVistaConsola estado) { this.estado = estado; }
+
+    private void enviarChat() {
+        Object seleccionado = comboBox.getSelectedItem();
+        if (seleccionado == null) return;
+        if (seleccionado instanceof MensajesSala) {
+            controlador.enviarChat((MensajesSala) seleccionado, nombreJugador);
+        } else if (seleccionado instanceof MensajesNormal) {
+            controlador.enviarChat((MensajesNormal) seleccionado, nombreJugador);
+        } else if (seleccionado instanceof MensajesPro) {
+            controlador.enviarChat((MensajesPro) seleccionado, nombreJugador);
+        }
+    }
+
+    public void actualizarComboChat(boolean juego) {
+        if(modoJuegoActivo == juego && comboBox.getItemCount() > 0 && !juego) return;
+        modoJuegoActivo = juego;
+        DefaultComboBoxModel<Object> modelo = new DefaultComboBoxModel<>();
+        if (!juego) {
+            for (MensajesSala m : MensajesSala.values()) modelo.addElement(m);
+        } else {
+            if (this.esModoProfesional) {
+                for (MensajesPro m : MensajesPro.values()) modelo.addElement(m);
+            } else {
+                for (MensajesNormal m : MensajesNormal.values()) modelo.addElement(m);
             }
         }
         comboBox.setModel(modelo);
     }
 
-
-
-    // Método que llamará el controlador cuando empiece el juego
-    public void activarModoJuego() {
-        // Cambiamos el chat a modo TÁCTICO
-        actualizarOpcionesChat(true);
-    }
-
-    // Agrega este método en VistaConsola.java
     public void mostrarReglas() {
-        System.out.println("\n=================================================================");
-        System.out.println("           THE GAME: QUICK & EASY - REGLAMENTO");
-        System.out.println("=================================================================");
-        System.out.println("OBJETIVO:");
-        System.out.println("  - Juegan como un equipo. Deben colocar las 50 cartas en los dos mazos[cite: 6].");
-        System.out.println("  - Mazo 1: ASCENDENTE (1 al 10).");
-        System.out.println("  - Mazo 2: DESCENDENTE (10 al 1)[cite: 9].");
+        mostrarMensaje("\n=================================================================");
+        mostrarMensaje("           THE GAME: QUICK & EASY - REGLAMENTO");
+        mostrarMensaje("=================================================================");
+        mostrarMensaje("OBJETIVO:");
+        mostrarMensaje("  - Juegan como un equipo. Deben colocar las 50 cartas en los dos mazos.");
+        mostrarMensaje("  - Mazo 1: ASCENDENTE (1 al 10).");
+        mostrarMensaje("  - Mazo 2: DESCENDENTE (10 al 1).");
 
-        System.out.println("\nTURNO DEL JUGADOR:");
-        System.out.println("  1. Debes jugar 1 o 2 cartas de tu mano[cite: 7].");
-        System.out.println("  2. Repones tu mano al final del turno (vuelves a tener 2 cartas)[cite: 7].");
+        mostrarMensaje("\nTURNO DEL JUGADOR:");
+        mostrarMensaje("  1. Debes jugar 1 o 2 cartas de tu mano.");
+        mostrarMensaje("  2. Repones tu mano al final del turno (vuelves a tener 2 cartas).");
 
-        System.out.println("\nEL TRUCO DE LA MARCHA ATRÁS (REVERSE):");
-        System.out.println("  - Normalmente debes respetar el orden (subir en Ascendente, bajar en Descendente).");
-        System.out.println("  - PERO: Si juegas una carta del MISMO COLOR exacto que la que está en la mesa,");
-        System.out.println("    puedes ignorar el orden y 'retroceder'[cite: 10].");
-        System.out.println("    (Ej: En el mazo Ascendente hay un 7 Verde, puedes jugar un 2 Verde encima).");
+        mostrarMensaje("\nEL TRUCO DE LA MARCHA ATRÁS (REVERSE):");
+        mostrarMensaje("  - Normalmente debes respetar el orden (subir en Ascendente, bajar en Descendente).");
+        mostrarMensaje("  - PERO: Si juegas una carta del MISMO COLOR exacto que la que está en la mesa,");
+        mostrarMensaje("    puedes ignorar el orden y 'retroceder'.");
+        mostrarMensaje("    (Ej: En el mazo Ascendente hay un 7 Verde, puedes jugar un 2 Verde encima).");
 
-        System.out.println("\nCOMUNICACIÓN:");
-        System.out.println("  - ¡Hablen entre ustedes!");
-        System.out.println("  - PROHIBIDO decir números exactos ('Tengo el 9 rojo')[cite: 75].");
-        System.out.println("  - PERMITIDO dar pistas vagas ('Tengo una roja alta', 'No toques el mazo descendente')[cite: 76].");
+        mostrarMensaje("\nCOMUNICACIÓN:");
+        mostrarMensaje("  - ¡Hablen entre ustedes!");
+        mostrarMensaje("  - PROHIBIDO decir números exactos ('Tengo el 9 rojo').");
+        mostrarMensaje("  - PERMITIDO dar pistas vagas ('Tengo una roja alta', 'No toques el mazo descendente').");
 
-        System.out.println("\nMODO PROFESIONAL:");
-        System.out.println("  - Solo se juega EXACTAMENTE 1 carta por turno (nunca 2)[cite: 83].");
-        System.out.println("  - Prohibido dar pistas sobre valores (alto/bajo/medio). Solo colores[cite: 84].");
-        System.out.println("=================================================================\n");
+        mostrarMensaje("\nMODO PROFESIONAL:");
+        mostrarMensaje("  - Solo se juega EXACTAMENTE 1 carta por turno (nunca 2).");
+        mostrarMensaje("  - Prohibido dar pistas sobre valores (alto/bajo/medio). Solo colores.");
+        mostrarMensaje("=================================================================\n");
     }
 }
