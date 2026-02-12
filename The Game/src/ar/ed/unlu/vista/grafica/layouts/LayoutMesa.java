@@ -3,12 +3,12 @@ package ar.ed.unlu.vista.grafica.layouts;
 import java.awt.Point;
 
 public interface LayoutMesa {
-    // [X, Y, Orientación (0=Horiz, 1=Vert)]
-    int[] getPosicionRival(int indiceRival);
+    // Ahora todos reciben ancho (w) y alto (h) actuales de la ventana
+    int[] getPosicionRival(int indiceRival, int w, int h);
 
-    Point getPosicionTitulo();
-    Point getPosicionMazos();
-    Point getPosicionEtiquetas();
-    Point getPosicionMiZona();
+    Point getPosicionTitulo(int w, int h);
+    Point getPosicionMazos(int w, int h);
+    Point getPosicionEtiquetas(int w, int h);
+    Point getPosicionMiZona(int w, int h);
     int getGapMazo();
 }

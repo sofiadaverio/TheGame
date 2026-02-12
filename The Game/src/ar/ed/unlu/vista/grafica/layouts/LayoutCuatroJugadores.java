@@ -4,30 +4,56 @@ import java.awt.Point;
 
 public class LayoutCuatroJugadores extends LayoutBase {
 
-    // --- GRILLA (RECTÁNGULO) ---
-    private final int X_COL_IZQ = 120;  // Alineado con los mazos izquierdos
-    private final int X_COL_DER = 580;  // Alineado con los mazos derechos
-
-    private final int Y_ARR = 25;
-    private final int Y_ABA = 520;
+    // Ancho aproximado del marco del jugador (para calcular los huecos)
+    private final int ANCHO_FRAME = 320;
 
     @Override
-    public int[] getPosicionRival(int i) {
-        // Orden Reloj (Tú estás Abajo Der):
-        // 0 -> J2 (Abajo Izq)
-        // 1 -> J3 (Arriba Izq)
-        // 2 -> J4 (Arriba Der)
+    public int[] getPosicionRival(int i, int w, int h) {
+        int cy = getCentroY(h);
+        int anchoUtil = w - ANCHO_CHAT;
+
+
+        int espacioVacioTotal = anchoUtil - (ANCHO_FRAME * 2);
+
+
+        int gap = Math.max(espacioVacioTotal / 3, 20);
+
+        int xIzq = gap;
+
+        int xDer = gap + ANCHO_FRAME + gap;
+
+        int yAbajo = h - 260;
+        yAbajo = Math.max(yAbajo, cy + 140);
+
+        int yArriba = 20;
 
         switch (i) {
-            case 0: return new int[]{X_COL_IZQ, Y_ABA, 0}; // J2: Horizontal Abajo-Izq
-            case 1: return new int[]{X_COL_IZQ, Y_ARR, 0}; // J3: Horizontal Arriba-Izq
-            case 2: return new int[]{X_COL_DER, Y_ARR, 0}; // J4: Horizontal Arriba-Der
+            case 0: // J2: Abajo Izquierda
+                return new int[]{xIzq, yAbajo, 0};
+
+            case 1: // J3: Arriba Izquierda
+                return new int[]{xIzq, yArriba, 0};
+
+            case 2: // J4: Arriba Derecha
+                return new int[]{xDer, yArriba, 0};
+
             default: return new int[]{0, 0, 0};
         }
     }
 
-
     @Override
-    public Point getPosicionMiZona() { return new Point(X_COL_DER, Y_ABA); }
+    public Point getPosicionMiZona(int w, int h) {
+        int cy = getCentroY(h);
+        int anchoUtil = w - ANCHO_CHAT;
 
+        int espacioVacioTotal = anchoUtil - (ANCHO_FRAME * 2);
+        int gap = Math.max(espacioVacioTotal / 3, 20);
+
+        int xDer = gap + ANCHO_FRAME + gap;
+
+        int y = h - 260;
+        y = Math.max(y, cy + 140);
+
+        return new Point(xDer, y);
+    }
 }
