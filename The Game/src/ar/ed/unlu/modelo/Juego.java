@@ -58,12 +58,12 @@ public class Juego extends ObservableRemoto implements IJuego, java.io.Serializa
     }
 
     @Override
-    public boolean jugarTurno(Carta cartaQueVino, Mazo mazoQueVino) throws RemoteException {
+    public boolean jugarTurno(Carta cartaSelecionada, Mazo mazoSelecionado) throws RemoteException {
         if (this.estadoJuego != EstadoJuego.EN_PROCESO) return false;
 
         Mazo mazoReal = null;
         for (Mazo m : this.mazos) {
-            if (m.getTipoMazo() == mazoQueVino.getTipoMazo()) {
+            if (m.getTipoMazo() == mazoSelecionado.getTipoMazo()) {
                 mazoReal = m;
                 break;
             }
@@ -74,8 +74,8 @@ public class Juego extends ObservableRemoto implements IJuego, java.io.Serializa
         Carta cartaReal = null;
 
         for (Carta c : jugadorActual.getMano()) {
-            if (c.getColor() == cartaQueVino.getColor() &&
-                    c.getNumero().intValue() == cartaQueVino.getNumero().intValue()) {
+            if (c.getColor() == cartaSelecionada.getColor() &&
+                    c.getNumero().intValue() == cartaSelecionada.getNumero().intValue()) {
                 cartaReal = c;
                 break;
             }
@@ -216,11 +216,6 @@ public class Juego extends ObservableRemoto implements IJuego, java.io.Serializa
     }
 
     @Override
-    public List<String> getNotificaciones() throws RemoteException {
-        return this.mensajes;
-    }
-
-    @Override
     public List<String> getNombresJugadores() throws RemoteException {
         List<String> nombres = new ArrayList<>();
         for (Jugador j : equipo.getJugadores()) nombres.add(j.getNombre());
@@ -284,7 +279,6 @@ public class Juego extends ObservableRemoto implements IJuego, java.io.Serializa
 
     // Helper privado para evitar repetir código
     private void enviarObjetoChat(String texto, String emisor) throws RemoteException {
-        // IMPORTANTE: El controlador espera "CHAT:" para identificarlo
         notificarObservadores("CHAT:" + emisor + ": " + texto);
     }
 

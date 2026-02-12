@@ -12,7 +12,6 @@ public interface IJuego extends IObservableRemoto {
 
     void conectarJugador(String nombre) throws RemoteException;
 
-    // ESTOS SON LOS QUE TE FALTAN:
     void terminarTurno() throws RemoteException;
 
     void desconectarJugador(String nombre) throws RemoteException;
@@ -24,8 +23,6 @@ public interface IJuego extends IObservableRemoto {
     List<Carta> getCartasJugador(String nombre) throws RemoteException;
 
     EstadoJuego getEstadoJuego() throws RemoteException;
-
-    List<String> getNotificaciones() throws RemoteException;
 
     List<String> getNombresJugadores() throws RemoteException;
 

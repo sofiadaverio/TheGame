@@ -6,5 +6,4 @@ public enum Evento {
     TURNO_CAMBIADO,
     FIN_DE_PARTIDA,
     JUGADOR_CONECTADO,
-    NUEVO_MENSAJE_CHAT// Para actualizaciones genéricas
 }
