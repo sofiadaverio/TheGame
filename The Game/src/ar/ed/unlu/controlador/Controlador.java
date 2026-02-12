@@ -88,7 +88,6 @@ public class Controlador implements IControladorRemoto {
         }
     }
 
-    // Método para el botón "Pasar" (Click en mazo)
     public void solicitarPasarTurno(String nombreJugador) {
         try {
             if (!validarTurno(nombreJugador)) return;
@@ -275,11 +274,9 @@ public class Controlador implements IControladorRemoto {
     public void cerrarPartida(boolean guardar, String nombreJugador) {
         try {
             if (guardar) {
-                // Intentamos guardar en el servidor
                 this.juego.guardarPartida();
             }
 
-            // Intentamos avisar que nos vamos
             this.juego.desconectarJugador(nombreJugador);
 
         } catch (RemoteException e) {
